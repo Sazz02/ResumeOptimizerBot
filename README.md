@@ -53,5 +53,6 @@ Behind the scenes:
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/your-username/ResumeOptimizerBot.git
+git clone https://github.com/Sazz02/ResumeOptimizerBot.git
 cd ResumeOptimizerBot
+
