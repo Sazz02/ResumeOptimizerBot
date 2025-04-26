@@ -1,0 +1,6 @@
+gradio
+cohere
+pdfminer.six
+python-docx
+scikit-learn
+requests
