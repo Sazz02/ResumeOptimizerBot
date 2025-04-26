@@ -1,5 +1,6 @@
 # app.py
 
+import os
 import gradio as gr
 import cohere
 import requests
@@ -9,34 +10,15 @@ from pdfminer.high_level import extract_text
 import docx
 from io import BytesIO
 
-# Globals to store API keys
-COHERE_API_KEY = None
-ADZUNA_APP_ID = None
-ADZUNA_APP_KEY = None
-co = None
+# Read API keys securely from Environment Variables
+COHERE_API_KEY = os.getenv("COHERE_API_KEY")
+ADZUNA_APP_ID = os.getenv("ADZUNA_APP_ID")
+ADZUNA_APP_KEY = os.getenv("ADZUNA_APP_KEY")
 
-# Function to set API keys
-def set_api_keys(cohere_key, adzuna_id, adzuna_key):
-    global COHERE_API_KEY, ADZUNA_APP_ID, ADZUNA_APP_KEY, co
-    COHERE_API_KEY = cohere_key.strip()
-    ADZUNA_APP_ID = adzuna_id.strip()
-    ADZUNA_APP_KEY = adzuna_key.strip()
+# Initialize Cohere client
+co = cohere.Client(COHERE_API_KEY)
 
-    try:
-        co = cohere.Client(COHERE_API_KEY)
-        
-        # Test Cohere API by making a small call
-        test_response = co.generate(
-            model="command",
-            prompt="Say hello",
-            max_tokens=5
-        )
-        if test_response:
-            return "✅ API keys set successfully! Now proceed to Step 2.", gr.update(visible=True)
-    except Exception as e:
-        return f"❌ Error validating API keys: {str(e)}", gr.update(visible=False)
-
-# Function to extract resume text
+# Function to extract text from resume
 def extract_resume_text(file):
     if file.name.endswith('.docx'):
         doc = docx.Document(file)
@@ -48,7 +30,7 @@ def extract_resume_text(file):
 # Function to analyze resume
 def analyze_resume(file, job_title):
     if not co:
-        return "⚠️ Please enter and validate your API keys first!"
+        return "⚠️ Error: API keys not loaded properly!"
 
     try:
         if not file:
@@ -64,20 +46,25 @@ def analyze_resume(file, job_title):
         except Exception as e:
             job_desc = f"⚠️ Failed to fetch job description: {str(e)}"
 
-        # AI analysis
+        # Generate resume analysis
         response = co.generate(
             model="command",
-            prompt=f"""Analyze this resume for a {job_title} role:
+            prompt=f"""You are an expert resume reviewer.
+Analyze this resume for a {job_title} role:
 
-            Resume Excerpt: {resume_text[:2000]}
+Resume Excerpt: {resume_text[:2000]}
 
-            Job Description: {job_desc[:1000]}
+Job Description: {job_desc[:1000]}
 
-            Provide:
-            1. Match score (0-100%)
-            2. Top 3 missing keywords
-            3. Two improvement tips""",
-            max_tokens=300
+Provide in the output:
+1. Overall Match Score (0-100%)
+2. Top 3 Missing Important Keywords
+3. Two Improvement Tips
+4. Pros of the Resume (at least 2 points)
+5. Cons of the Resume (at least 2 points)
+
+Make your response clear, use headings for each section.""",
+            max_tokens=500
         )
 
         return f"📋 Resume Analysis:\n\n{response.generations[0].text}"
@@ -92,32 +79,17 @@ with gr.Blocks(theme=gr.themes.Soft(primary_hue="cyan", secondary_hue="blue")) a
         <div style='text-align: center;'>
             <img src='https://cdn-icons-png.flaticon.com/512/4712/4712027.png' width='120px'/>
             <h1>🤖 Resume Robot</h1>
-            <h3>Securely Upload Your Resume & Get AI Insights!</h3>
+            <h3>Upload Your Resume & Instantly Get AI Insights!</h3>
         </div>
         """
     )
 
-    with gr.Tab("🔐 Step 1: Enter API Keys"):
-        with gr.Row():
-            cohere_key = gr.Textbox(label="Cohere API Key", type="password", placeholder="Paste your Cohere API key here")
-            adzuna_id = gr.Textbox(label="Adzuna App ID", type="password", placeholder="Paste your Adzuna App ID here")
-            adzuna_key = gr.Textbox(label="Adzuna App Key", type="password", placeholder="Paste your Adzuna App Key here")
-        
-        submit_keys = gr.Button("✅ Save API Keys and Validate")
-        keys_output = gr.Textbox(label="Status", interactive=False)
+    resume_file = gr.File(label="Upload Resume (PDF or DOCX)", file_types=[".pdf", ".docx"])
+    job_title = gr.Textbox(label="Job Title (e.g., Data Scientist)")
+    analyze_btn = gr.Button("🔍 Analyze Resume")
+    output_text = gr.Textbox(label="Resume Analysis", lines=20)
 
-        resume_section = gr.Column(visible=False)
+    analyze_btn.click(fn=analyze_resume, inputs=[resume_file, job_title], outputs=output_text)
 
-        submit_keys.click(set_api_keys, inputs=[cohere_key, adzuna_id, adzuna_key], outputs=[keys_output, resume_section])
-
-    with gr.Tab("📄 Step 2: Upload Resume and Analyze"):
-        with resume_section:
-            resume_file = gr.File(label="Upload Resume (PDF or DOCX)", file_types=[".pdf", ".docx"])
-            job_title = gr.Textbox(label="Job Title (e.g., Data Scientist)")
-            analyze_btn = gr.Button("🔍 Analyze Resume")
-            output_text = gr.Textbox(label="Resume Analysis", lines=15)
-
-            analyze_btn.click(fn=analyze_resume, inputs=[resume_file, job_title], outputs=output_text)
-
-# 👉 Special Render.com server settings
+# Special server settings for Render
 demo.launch(server_name="0.0.0.0", server_port=8080)
