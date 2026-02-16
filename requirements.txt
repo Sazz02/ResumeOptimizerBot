@@ -1,6 +1,7 @@
-gradio
-cohere
+gradio>=4.0.0
+cohere>=5.0.0
+requests
 pdfminer.six
 python-docx
 scikit-learn
-requests
+numpy
