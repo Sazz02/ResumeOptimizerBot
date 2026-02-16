@@ -74,7 +74,7 @@ Format with proper headings.
 
         # ---------------- COHERE CHAT API (FIXED PART) ----------------
         response = co.chat(
-            model="command-r",
+            model="command-r-plus",
             messages=[
                 {"role": "system", "content": "You are a professional ATS resume optimization assistant."},
                 {"role": "user", "content": prompt}
